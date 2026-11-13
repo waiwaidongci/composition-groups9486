@@ -9,3 +9,8 @@ export interface Result{algorithm_version:string;study:Study;components:Componen
 export interface Run{id:number;name:string;study_id:number;delta:number;permutations:number;seed:number;status:'queued'|'running'|'completed'|'failed';result:Result;error:string;owner:string;created_at:string}
 export interface Note{id:number;run_id:number;title:string;interpretation:string;proposal:string;status:'submitted'|'approved'|'rejected';owner:string;reviewer:string;review_note:string;created_at:string}
 export interface Audit{id:number;actor:string;action:string;target:string;created_at:string}
+export interface ChangeView{field:string;label:string;before:number|string|null;after:number|string|null}
+export interface CorrectionItem{sample_id:number;code:string;group:string;values:Record<string,number|null>;included:boolean;changed:boolean;reject_reason:string;changes:ChangeView[];before_group:string;before_values:Record<string,number>}
+export interface CorrectionConflict{message:string;drift?:{sample_id:number;code:string;reason:string}[]}
+export interface Correction{id:number;study_id:number;reason:string;status:'preview'|'confirmed'|'conflicted';items:CorrectionItem[];conflict:CorrectionConflict;created_by:string;confirmed_by:string;created_at:string;confirmed_at:string;included_count:number;excluded_count:number;changed_count:number}
+export interface CorrectionDraft{sample_id:number;group:string;values:Record<string,number>}

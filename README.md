@@ -36,7 +36,7 @@ JWT角色在后端执行，viewer写入403、analyst审批403、未获批导出4
 
 ## 六页与五实体
 
-组成总览、相份额来源、替换与置换、组间证据、复配补样、研究留痕。`CompositionStudy / ComponentSpec / CompositionSample / CompositionRun / ResampleNote` 均贯穿表、model、schema、service、route、前端API、store与页面/组件，另有User/Audit。来源数值/成分/组标签只读核对，样本批注可写；运行创建时冻结完整快照，后续批注不改历史结果。
+组成总览、相份额来源、替换与置换、组间证据、复配补样、研究留痕。`CompositionStudy / ComponentSpec / CompositionSample / CompositionRun / ResampleNote` 均贯穿表、model、schema、service、route、前端API、store与页面/组件，另有User/Audit，以及批量复测更正实体 `SampleCorrection`。来源数值/成分/组标签默认只读核对，样本批注可写；化验复测后的组别或相对量登记错误，只能经“批量复测更正”两阶段流程修改。运行创建时冻结完整快照，后续批注与更正都不改历史结果。
 
 seed为3研究×3工艺×24样本=216行、15个成分定义。LS-01正组成，LS-02含12行零分量（每组4行），LS-03固定[50,20,15,10,5]恒定边界。固定种子290/291/292生成，五相互斥，其余相为剩余通道，仅解释相对组成。自然键email、study code、(study,sample code)、(study,component code/position)、基线run name；seed只补缺失，不覆盖用户批注/已批准建议。`SEED_DEMO=true`启动执行一次，失败记日志，也可独立重复执行。
 
@@ -72,6 +72,15 @@ B199–999次均匀置换标签，组规模保持，固定seed与自然键排序
 全局组差也可受组内离散度影响，只给到组CLR质心的平均/最大距离描述，未正式检验离散度同质；独立与零假设下标签可交换是前提。不是工艺因果、性能概率、逐组对照p或事后选择保证。p最小分辨率1/(B+1)，有Monte Carlo波动。
 
 当前算法/指纹版本为 `closure-replacement-clr-permanova-v2`。v1在真实6点夹具的数学并列漏计曾被独立复核发现；v2修复、空卷重跑及原证据详见TESTING，不用历史v1运行冒充最终结果。
+
+## 批量复测更正
+
+化验复测后发现同一样本的组别或相对量登记错误时，analyst/admin 在“相份额来源”页发起两阶段更正，viewer 只读：
+
+1. **预览**（`POST /corrections/preview`）：逐样本比对当前库值并返回前后差异，状态 `preview`，此阶段不写任何样本。未知样本、缺相/含未定义相、非法数值（NaN/Inf/负数/全零）、同批重复样本一律标为不写入并附原因；与当前值完全一致的条目不产生更正。NaN/Inf 在留痕 JSON 中净化为 `null`，不回显、不写入。
+2. **整批确认**（`POST /corrections/{id}/confirm`）：确认时先锁研究行、再按 id 顺序锁涉及样本行，比对预览时记录的前后值快照。若样本已被先确认的其他批次改写（漂移），本批**整批拒绝**、状态置 `conflicted` 并在 `conflict` 中逐样本说明，任何样本都不写入；无漂移才整体写入并置 `confirmed`。重复确认同一批次直接返回既有结果，不产生重复更正、不重复留痕；已冲突批次重复确认仍返回 409。
+
+更正批次 `SampleCorrection` 留存批次依据、每个样本的前后组别与前后相对量、写入/排除判定、操作人与确认时间，研究留痕页审计 `correction.preview / correction.confirm / correction.conflict`，来源页“更正留痕”可展开核对前后值。更正只更新 `composition_samples` 当前值：**更正后新建分析使用新数据；已有运行的 `input_snapshot` 与获批 CSV 导出保留原始依据，不回写**。
 
 ## 工程与开发
 
